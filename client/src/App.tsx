@@ -10,6 +10,7 @@ import AdminLayout from './pages/admin/AdminLayout';
 import LocationsAdmin from './pages/admin/LocationsAdmin';
 import MenuAdmin from './pages/admin/MenuAdmin';
 import BrandingAdmin from './pages/admin/BrandingAdmin';
+import OrdersAdmin from './pages/admin/OrdersAdmin';
 import StatsAdmin from './pages/admin/StatsAdmin';
 import StripeAdmin from './pages/admin/StripeAdmin';
 
@@ -32,6 +33,7 @@ export default function App(): JSX.Element {
         <Route path="locations" element={<LocationsAdmin />} />
         <Route path="menu" element={<MenuAdmin />} />
         <Route path="design" element={<BrandingAdmin />} />
+        <Route path="orders" element={<OrdersAdmin />} />
         <Route path="stats" element={<StatsAdmin />} />
         <Route path="stripe" element={<StripeAdmin />} />
       </Route>

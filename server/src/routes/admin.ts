@@ -4,6 +4,7 @@ import type { OrderStatus } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { requireAdmin } from '../middleware/auth';
 import { ApiError, asyncHandler } from '../middleware/error';
+import { cancelOrderWithRefund } from '../lib/orders';
 import { brandingSchema, categorySchema, locationCreateSchema, locationUpdateSchema, menuItemSchema } from '../schemas';
 
 export const adminRouter = Router();
@@ -138,6 +139,104 @@ adminRouter.get(
         .map(([id, value]) => ({ id, ...value }))
         .sort((a, b) => b.revenueCents - a.revenueCents),
     });
+  })
+);
+
+const adminOrderSelect = {
+  id: true,
+  number: true,
+  mode: true,
+  status: true,
+  tableLabel: true,
+  guestName: true,
+  subtotalCents: true,
+  tipCents: true,
+  currency: true,
+  createdAt: true,
+  refundedAt: true,
+  location: { select: { id: true, name: true } },
+  items: { select: { id: true, name: true, quantity: true, priceCents: true } },
+} as const;
+
+/** Bestellübersicht: durchsuchbar nach Nummer/Gastname, filterbar nach Standort. */
+adminRouter.get(
+  '/orders',
+  asyncHandler(async (req, res) => {
+    const days = Math.min(Math.max(Number(req.query.days) || 7, 1), 90);
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    const locationId = typeof req.query.locationId === 'string' && req.query.locationId ? req.query.locationId : undefined;
+    const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+
+    const orders = await prisma.order.findMany({
+      where: {
+        location: { tenantId: req.admin!.tenantId, ...(locationId ? { id: locationId } : {}) },
+        createdAt: { gte: since },
+        ...(q
+          ? /^\d+$/.test(q)
+            ? { number: Number(q) }
+            : { guestName: { contains: q, mode: 'insensitive' } }
+          : {}),
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+      select: adminOrderSelect,
+    });
+    res.json(orders);
+  })
+);
+
+/** Storno aus der Verwaltung – bezahlte Bestellungen werden automatisch erstattet. */
+adminRouter.post(
+  '/orders/:id/cancel',
+  asyncHandler(async (req, res) => {
+    const order = await prisma.order.findFirst({
+      where: { id: req.params.id as string, location: { tenantId: req.admin!.tenantId } },
+    });
+    if (!order) throw new ApiError(404, 'Bestellung nicht gefunden.');
+    if (!['NEW', 'IN_PROGRESS', 'READY'].includes(order.status)) {
+      throw new ApiError(409, 'Nur offene Bestellungen können storniert werden.');
+    }
+    const { refunded } = await cancelOrderWithRefund(order);
+    const cancelled = await prisma.order.findUniqueOrThrow({ where: { id: order.id }, select: adminOrderSelect });
+    res.json({ ...cancelled, refunded });
+  })
+);
+
+/** CSV-Export für die Buchhaltung (Excel-kompatibel, Semikolon + BOM). */
+adminRouter.get(
+  '/export.csv',
+  asyncHandler(async (req, res) => {
+    const days = Math.min(Math.max(Number(req.query.days) || 30, 1), 365);
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    const orders = await prisma.order.findMany({
+      where: { location: { tenantId: req.admin!.tenantId }, createdAt: { gte: since } },
+      orderBy: { createdAt: 'asc' },
+      select: adminOrderSelect,
+    });
+
+    const csvField = (value: string): string => `"${value.replace(/"/g, '""')}"`;
+    const euroCsv = (cents: number): string => (cents / 100).toFixed(2).replace('.', ',');
+    const rows = [
+      ['Datum', 'Uhrzeit', 'Standort', 'Nr', 'Status', 'Erstattet', 'Zwischensumme', 'Trinkgeld', 'Gesamt', 'Währung', 'Artikel'].join(';'),
+      ...orders.map((order) =>
+        [
+          order.createdAt.toISOString().slice(0, 10),
+          order.createdAt.toISOString().slice(11, 16),
+          csvField(order.location.name),
+          String(order.number),
+          order.status,
+          order.refundedAt ? 'ja' : '',
+          euroCsv(order.subtotalCents),
+          euroCsv(order.tipCents),
+          euroCsv(order.subtotalCents + order.tipCents),
+          order.currency.toUpperCase(),
+          csvField(order.items.map((i) => `${i.quantity}x ${i.name}`).join(', ')),
+        ].join(';')
+      ),
+    ];
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="prego-bestellungen-${days}tage.csv"`);
+    res.send(`﻿${rows.join('\n')}`);
   })
 );
 

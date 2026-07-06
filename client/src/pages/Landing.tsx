@@ -81,6 +81,12 @@ export default function Landing(): JSX.Element {
         <p className="mt-8 text-[11px] uppercase tracking-[0.2em] text-ivory/30">
           Keine Hardware · keine App · in 10 Minuten startklar
         </p>
+        <Link
+          to="/l/sommerfest"
+          className="mt-4 text-xs font-semibold uppercase tracking-[0.2em] text-champagne/80 underline-offset-4 transition hover:text-champagne hover:underline"
+        >
+          Live-Demo ansehen →
+        </Link>
       </section>
 
       {/* So funktioniert's */}

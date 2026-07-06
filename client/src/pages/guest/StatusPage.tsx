@@ -28,8 +28,13 @@ export default function StatusPage(): JSX.Element {
     queryKey: ['order', token],
     queryFn: () => api<PublicOrder>(`/api/public/orders/${token}`),
     enabled: Boolean(token),
-    refetchInterval: (query) =>
-      query.state.data?.status === 'PENDING_PAYMENT' ? 3000 : false,
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      if (status === 'PENDING_PAYMENT') return 3000;
+      // Warteschlangen-Position aktuell halten, solange die Bestellung offen ist
+      if (status === 'NEW' || status === 'IN_PROGRESS') return 30_000;
+      return false;
+    },
   });
 
   // Live-Updates per SSE – Tab offen lassen genügt
@@ -119,9 +124,21 @@ export default function StatusPage(): JSX.Element {
 
       {order.status === 'CANCELLED' && (
         <p className="mt-9 border border-red-400/40 bg-red-950/50 px-6 py-4 text-red-300">
-          Diese Bestellung wurde storniert. Bitte melden Sie sich an der Bar.
+          Diese Bestellung wurde storniert.
+          {order.refundedAt
+            ? ' Der Betrag wurde bereits zurückerstattet – je nach Bank dauert die Gutschrift wenige Tage.'
+            : ' Bitte melden Sie sich an der Bar.'}
         </p>
       )}
+
+      {typeof order.queueAhead === 'number' &&
+        order.queueAhead > 0 &&
+        (order.status === 'NEW' || order.status === 'IN_PROGRESS') && (
+          <p className="mt-6 text-sm font-light text-ivory/50">
+            Vor Ihnen: <span className="font-display italic text-champagne">{order.queueAhead}</span>{' '}
+            {order.queueAhead === 1 ? 'Bestellung' : 'Bestellungen'}
+          </p>
+        )}
 
       {order.status !== 'PENDING_PAYMENT' && order.status !== 'CANCELLED' && (
         <ol className="mt-11 w-full max-w-xs space-y-5 text-left">

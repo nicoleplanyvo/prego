@@ -28,6 +28,7 @@ const orderPublicSelect = {
   tipCents: true,
   currency: true,
   createdAt: true,
+  refundedAt: true,
   items: { select: { id: true, name: true, priceCents: true, quantity: true, note: true } },
 } satisfies Prisma.OrderSelect;
 
@@ -63,9 +64,13 @@ publicRouter.get(
       },
     });
     if (!location || !location.active) throw new ApiError(404, 'Diese Bar ist gerade nicht aktiv.');
+    const queueSize = await prisma.order.count({
+      where: { locationId: location.id, status: { in: ['NEW', 'IN_PROGRESS'] } },
+    });
     res.json({
       id: location.id,
       name: location.name,
+      queueSize,
       slug: location.slug,
       mode: location.mode,
       acceptingOrders: location.acceptingOrders,
@@ -174,6 +179,7 @@ publicRouter.get(
       where: { publicToken: req.params.token as string },
       select: {
         ...orderPublicSelect,
+        locationId: true,
         location: {
           select: {
             name: true,
@@ -183,8 +189,19 @@ publicRouter.get(
       },
     });
     if (!order) throw new ApiError(404, 'Bestellung nicht gefunden.');
-    const { location, ...rest } = order;
-    res.json({ ...rest, location: { name: location.name }, branding: brandingOf(location.tenant) });
+    // Warteschlange: ältere, noch offene Bestellungen desselben Standorts
+    const queueAhead =
+      order.status === 'NEW' || order.status === 'IN_PROGRESS'
+        ? await prisma.order.count({
+            where: {
+              locationId: order.locationId,
+              status: { in: ['NEW', 'IN_PROGRESS'] },
+              createdAt: { lt: order.createdAt },
+            },
+          })
+        : 0;
+    const { location, locationId: _locationId, ...rest } = order;
+    res.json({ ...rest, location: { name: location.name }, branding: brandingOf(location.tenant), queueAhead });
   })
 );
 

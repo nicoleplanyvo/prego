@@ -86,7 +86,12 @@ export default function MenuPage(): JSX.Element {
           <p className="mt-2 text-sm font-light text-ivory/50">Tisch {cart.tableLabel} · wird an Ihren Platz serviert</p>
         )}
         {location.mode === 'PICKUP' && (
-          <p className="mt-2 text-sm font-light text-ivory/50">Abholung an der Bar – wir geben Bescheid</p>
+          <p className="mt-2 text-sm font-light text-ivory/50">
+            Abholung an der Bar – wir geben Bescheid
+            {location.queueSize > 0 && (
+              <span className="text-champagne/80"> · aktuell ca. {waitEstimateMinutes(location.queueSize)} Min Wartezeit</span>
+            )}
+          </p>
         )}
       </header>
 
@@ -279,6 +284,11 @@ function QuantityControl(props: {
       </button>
     </div>
   );
+}
+
+/** Grobe Schätzung: ~3 Minuten pro offener Bestellung, mindestens 5. */
+function waitEstimateMinutes(queueSize: number): number {
+  return Math.max(5, queueSize * 3);
 }
 
 function CenterMessage(props: { text: string }): JSX.Element {

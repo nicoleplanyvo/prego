@@ -1,9 +1,24 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { api, euro } from '../../api';
+import { api, euro, getAdminToken } from '../../api';
 import type { AdminStats } from '../../types';
 
 const RANGES = [7, 14, 30] as const;
+
+/** CSV mit Auth-Header laden und als Download anstoßen. */
+async function downloadCsv(days: number): Promise<void> {
+  const token = getAdminToken();
+  const res = await fetch(`/api/admin/export.csv?days=${days}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) return;
+  const url = URL.createObjectURL(await res.blob());
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `prego-bestellungen-${days}tage.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
 
 export default function StatsAdmin(): JSX.Element {
   const [days, setDays] = useState<number>(7);
@@ -23,19 +38,28 @@ export default function StatsAdmin(): JSX.Element {
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-extrabold">Auswertung</h2>
-        <div className="flex gap-1 rounded-xl bg-ivory/10 p-1">
-          {RANGES.map((range) => (
-            <button
-              key={range}
-              type="button"
-              onClick={() => setDays(range)}
-              className={`rounded-lg px-3 py-1.5 text-sm font-bold transition ${
-                days === range ? 'bg-carta shadow-sm' : 'text-ivory/50 hover:text-ivory/80'
-              }`}
-            >
-              {range} Tage
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex gap-1 rounded-xl bg-ivory/10 p-1">
+            {RANGES.map((range) => (
+              <button
+                key={range}
+                type="button"
+                onClick={() => setDays(range)}
+                className={`rounded-lg px-3 py-1.5 text-sm font-bold transition ${
+                  days === range ? 'bg-carta shadow-sm' : 'text-ivory/50 hover:text-ivory/80'
+                }`}
+              >
+                {range} Tage
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={() => void downloadCsv(days)}
+            className="rounded-xl border-2 border-ivory/15 px-3 py-2 text-sm font-bold transition hover:border-ivory/30"
+          >
+            CSV-Export
+          </button>
         </div>
       </div>
 

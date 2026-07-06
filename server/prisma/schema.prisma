@@ -93,6 +93,7 @@ model Order {
   feeCents         Int
   currency         String      @default("eur")
   paymentIntentId  String?     @unique
+  refundedAt       DateTime?
   pushSubscription Json?
   items            OrderItem[]
   createdAt        DateTime    @default(now())

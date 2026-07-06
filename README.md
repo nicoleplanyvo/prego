@@ -33,6 +33,10 @@ sobald die Bestellung abholbereit ist – oder der Kellner serviert direkt an de
 - **Umsatz-Auswertung** (`/admin/stats`) – Tagesumsatz, Trinkgeld, Ø Bonwert, 7/14/30-Tage-Verlauf, Top-Drinks, Umsatz je Standort
 - **Name für den Aufruf** – Gast kann im Abhol-Modus optional seinen Namen angeben, erscheint auf dem Board
 - **Eigenes Branding** (`/admin/design`) – Logo hochladen plus Akzent- und Hintergrundfarbe wählen; gilt für alle Gast-Seiten (Speisekarte, Checkout, Status), Admin und Board bleiben im prego-Look
+- **Automatische Rückerstattung bei Storno** – storniert Board oder Verwaltung eine bezahlte Bestellung, geht das Geld per Stripe-Refund (inkl. Fee-Rückabwicklung) an den Gast zurück; schlägt der Refund fehl, wird nicht storniert
+- **Bestellübersicht** (`/admin/orders`) – alle Bestellungen durchsuchen (Nummer/Gastname), nach Standort und Zeitraum filtern, offene Bestellungen stornieren & erstatten
+- **Wartezeit-Anzeige** – Gäste sehen auf der Karte die geschätzte Wartezeit und auf der Statusseite ihre Position in der Warteschlange
+- **CSV-Export** – Bestellungen als Excel-kompatible CSV für die Buchhaltung (Button in der Auswertung)
 
 ## Stack
 

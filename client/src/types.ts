@@ -36,6 +36,7 @@ export interface PublicLocation {
   currency: string;
   barName: string;
   branding: Branding;
+  queueSize: number;
   paymentsReady: boolean;
   pushAvailable: boolean;
   vapidPublicKey: string | null;
@@ -62,9 +63,11 @@ export interface PublicOrder {
   tipCents: number;
   currency: string;
   createdAt: string;
+  refundedAt: string | null;
   items: OrderItemView[];
   location?: { name: string };
   branding?: Branding;
+  queueAhead?: number;
 }
 
 export interface BoardOrderItem {
@@ -103,6 +106,22 @@ export interface AdminLocation {
   active: boolean;
   acceptingOrders: boolean;
   createdAt: string;
+}
+
+export interface AdminOrder {
+  id: string;
+  number: number;
+  mode: OrderMode;
+  status: OrderStatus;
+  tableLabel: string | null;
+  guestName: string | null;
+  subtotalCents: number;
+  tipCents: number;
+  currency: string;
+  createdAt: string;
+  refundedAt: string | null;
+  location: { id: string; name: string };
+  items: { id: string; name: string; quantity: number; priceCents: number }[];
 }
 
 export interface AdminStats {

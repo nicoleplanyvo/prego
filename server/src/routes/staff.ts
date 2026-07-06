@@ -8,6 +8,7 @@ import { requireStaff } from '../middleware/auth';
 import { ApiError, asyncHandler } from '../middleware/error';
 import { staffLocationUpdateSchema, staffLoginSchema, staffStatusSchema } from '../schemas';
 import { emitLocationEvent, emitOrderEvent, subscribeSse } from '../lib/events';
+import { cancelOrderWithRefund } from '../lib/orders';
 import { sendPush } from '../lib/push';
 import { config } from '../config';
 
@@ -106,6 +107,14 @@ staffRouter.patch(
     const allowed = allowedTransitions[order.status] ?? [];
     if (!allowed.includes(body.status)) {
       throw new ApiError(409, `Wechsel von ${order.status} zu ${body.status} nicht möglich.`);
+    }
+
+    // Storno einer bezahlten Bestellung → Geld geht automatisch zurück an den Gast.
+    if (body.status === 'CANCELLED') {
+      const { refunded } = await cancelOrderWithRefund(order);
+      const cancelled = await prisma.order.findUniqueOrThrow({ where: { id: order.id }, select: boardOrderSelect });
+      res.json({ ...cancelled, refunded });
+      return;
     }
 
     const updated = await prisma.order.update({
