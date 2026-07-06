@@ -1,0 +1,20 @@
+<svg width="300" height="300" viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg">
+  <!-- prego. – Favicon: „p.“ im Wasserring -->
+  <defs>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#DFC08A"/>
+      <stop offset=".55" stop-color="#C9A96A"/>
+      <stop offset="1" stop-color="#9C7B42"/>
+    </linearGradient>
+  </defs>
+  <rect width="300" height="300" rx="64" fill="#0B0A08"/>
+  <g fill="none" stroke-linecap="round">
+    <circle cx="150" cy="152" r="112" stroke="url(#gold)" stroke-width="9"
+            stroke-dasharray="600 103" transform="rotate(-18 150 152)" opacity=".95"/>
+  </g>
+  <circle cx="236" cy="56" r="9" fill="#C9A96A"/>
+  <text x="134" y="200" text-anchor="middle"
+        font-family="Georgia, 'Times New Roman', serif" font-size="150"
+        fill="#F2EDE3">p</text>
+  <circle cx="196" cy="188" r="13" fill="url(#gold)"/>
+</svg>

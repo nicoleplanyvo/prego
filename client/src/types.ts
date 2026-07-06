@@ -21,13 +21,22 @@ export interface PublicCategory {
   items: PublicMenuItem[];
 }
 
+export interface Branding {
+  logoDataUrl: string | null;
+  accent: string | null;
+  bg: string | null;
+}
+
 export interface PublicLocation {
   id: string;
   name: string;
   slug: string;
   mode: OrderMode;
+  acceptingOrders: boolean;
   currency: string;
   barName: string;
+  branding: Branding;
+  queueSize: number;
   paymentsReady: boolean;
   pushAvailable: boolean;
   vapidPublicKey: string | null;
@@ -51,10 +60,14 @@ export interface PublicOrder {
   tableLabel: string | null;
   guestName: string | null;
   subtotalCents: number;
+  tipCents: number;
   currency: string;
   createdAt: string;
+  refundedAt: string | null;
   items: OrderItemView[];
   location?: { name: string };
+  branding?: Branding;
+  queueAhead?: number;
 }
 
 export interface BoardOrderItem {
@@ -72,8 +85,17 @@ export interface BoardOrder {
   tableLabel: string | null;
   guestName: string | null;
   subtotalCents: number;
+  tipCents: number;
   createdAt: string;
   items: BoardOrderItem[];
+}
+
+export interface StaffLocationState {
+  id: string;
+  name: string;
+  slug: string;
+  mode: OrderMode;
+  acceptingOrders: boolean;
 }
 
 export interface AdminLocation {
@@ -82,7 +104,37 @@ export interface AdminLocation {
   slug: string;
   mode: OrderMode;
   active: boolean;
+  acceptingOrders: boolean;
   createdAt: string;
+}
+
+export interface AdminOrder {
+  id: string;
+  number: number;
+  mode: OrderMode;
+  status: OrderStatus;
+  tableLabel: string | null;
+  guestName: string | null;
+  subtotalCents: number;
+  tipCents: number;
+  currency: string;
+  createdAt: string;
+  refundedAt: string | null;
+  location: { id: string; name: string };
+  items: { id: string; name: string; quantity: number; priceCents: number }[];
+}
+
+export interface AdminStats {
+  days: number;
+  today: {
+    orders: number;
+    revenueCents: number;
+    tipCents: number;
+    avgOrderCents: number;
+  };
+  byDay: { date: string; orders: number; revenueCents: number }[];
+  topItems: { name: string; quantity: number; revenueCents: number }[];
+  byLocation: { id: string; name: string; orders: number; revenueCents: number }[];
 }
 
 export interface AdminMenuItem {
@@ -109,4 +161,7 @@ export interface TenantMe {
   stripeAccountId: string | null;
   stripeChargesEnabled: boolean;
   subscriptionStatus: string;
+  logoDataUrl: string | null;
+  brandAccent: string | null;
+  brandBg: string | null;
 }

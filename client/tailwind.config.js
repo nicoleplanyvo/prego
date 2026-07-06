@@ -4,12 +4,14 @@ export default {
   theme: {
     extend: {
       colors: {
-        noir: '#0B0A08',
-        carta: '#161410',
-        ivory: '#F2EDE3',
-        champagne: '#C9A96A',
-        'champagne-dark': '#B08F4F',
-        oliva: '#9CB89C',
+        // RGB-Tripel aus CSS-Variablen (Defaults in index.css) – so kann das
+        // Branding pro Gastronom die Gast-Seiten umfärben.
+        noir: 'rgb(var(--c-noir) / <alpha-value>)',
+        carta: 'rgb(var(--c-carta) / <alpha-value>)',
+        ivory: 'rgb(var(--c-ivory) / <alpha-value>)',
+        champagne: 'rgb(var(--c-champagne) / <alpha-value>)',
+        'champagne-dark': 'rgb(var(--c-champagne-dark) / <alpha-value>)',
+        oliva: 'rgb(var(--c-oliva) / <alpha-value>)',
       },
       fontFamily: {
         sans: ['Manrope', 'system-ui', 'sans-serif'],

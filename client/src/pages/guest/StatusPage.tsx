@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api';
+import { BrandedShell, BrandLogo, PoweredByPrego } from '../../branding';
 import type { PublicOrder } from '../../types';
 
 const STATUS_STEPS: { key: PublicOrder['status']; label: string }[] = [
@@ -27,8 +28,13 @@ export default function StatusPage(): JSX.Element {
     queryKey: ['order', token],
     queryFn: () => api<PublicOrder>(`/api/public/orders/${token}`),
     enabled: Boolean(token),
-    refetchInterval: (query) =>
-      query.state.data?.status === 'PENDING_PAYMENT' ? 3000 : false,
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      if (status === 'PENDING_PAYMENT') return 3000;
+      // Warteschlangen-Position aktuell halten, solange die Bestellung offen ist
+      if (status === 'NEW' || status === 'IN_PROGRESS') return 30_000;
+      return false;
+    },
   });
 
   // Live-Updates per SSE – Tab offen lassen genügt
@@ -95,11 +101,13 @@ export default function StatusPage(): JSX.Element {
   const isService = order.mode === 'SERVICE';
 
   return (
+    <BrandedShell branding={order.branding}>
     <main className="relative mx-auto flex min-h-screen max-w-lg flex-col items-center overflow-hidden px-6 py-12 text-center">
       <div
         aria-hidden
         className="pointer-events-none absolute -top-32 left-1/2 h-80 w-80 -translate-x-1/2 rounded-full bg-champagne/10 blur-3xl"
       />
+      <BrandLogo branding={order.branding} barName={order.location?.name ?? 'prego.'} className="mb-3" />
       <p className="text-[11px] font-semibold uppercase tracking-luxe text-champagne">
         {order.location?.name ?? 'prego.'}
       </p>
@@ -116,9 +124,21 @@ export default function StatusPage(): JSX.Element {
 
       {order.status === 'CANCELLED' && (
         <p className="mt-9 border border-red-400/40 bg-red-950/50 px-6 py-4 text-red-300">
-          Diese Bestellung wurde storniert. Bitte melden Sie sich an der Bar.
+          Diese Bestellung wurde storniert.
+          {order.refundedAt
+            ? ' Der Betrag wurde bereits zurückerstattet – je nach Bank dauert die Gutschrift wenige Tage.'
+            : ' Bitte melden Sie sich an der Bar.'}
         </p>
       )}
+
+      {typeof order.queueAhead === 'number' &&
+        order.queueAhead > 0 &&
+        (order.status === 'NEW' || order.status === 'IN_PROGRESS') && (
+          <p className="mt-6 text-sm font-light text-ivory/50">
+            Vor Ihnen: <span className="font-display italic text-champagne">{order.queueAhead}</span>{' '}
+            {order.queueAhead === 1 ? 'Bestellung' : 'Bestellungen'}
+          </p>
+        )}
 
       {order.status !== 'PENDING_PAYMENT' && order.status !== 'CANCELLED' && (
         <ol className="mt-11 w-full max-w-xs space-y-5 text-left">
@@ -206,8 +226,15 @@ export default function StatusPage(): JSX.Element {
             </li>
           ))}
         </ul>
+        {order.tipCents > 0 && (
+          <p className="mt-3 border-t border-ivory/[0.07] pt-3 text-xs font-light text-ivory/45">
+            + Trinkgeld – danke! <span className="font-display italic text-champagne">Salute.</span>
+          </p>
+        )}
       </section>
+      <PoweredByPrego className="mt-10" />
     </main>
+    </BrandedShell>
   );
 }
 

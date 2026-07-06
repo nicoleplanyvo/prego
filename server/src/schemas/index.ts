@@ -32,6 +32,25 @@ export const locationUpdateSchema = z.object({
   mode: z.enum(['PICKUP', 'SERVICE']).optional(),
   staffPin: z.string().regex(/^\d{4,8}$/).optional(),
   active: z.boolean().optional(),
+  acceptingOrders: z.boolean().optional(),
+});
+
+export const staffLocationUpdateSchema = z.object({
+  acceptingOrders: z.boolean(),
+});
+
+const hexColor = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Farbe als Hex-Wert, z. B. #C9A96A');
+
+/** Branding pro Gastronom: Logo als Data-URL (~300 KB) + zwei Farben. */
+export const brandingSchema = z.object({
+  logoDataUrl: z
+    .string()
+    .max(400_000, 'Logo ist zu groß (max. ~300 KB).')
+    .regex(/^data:image\/(png|jpeg|webp|svg\+xml);base64,[A-Za-z0-9+/=]+$/, 'Logo muss ein Bild sein.')
+    .nullable()
+    .optional(),
+  brandAccent: hexColor.nullable().optional(),
+  brandBg: hexColor.nullable().optional(),
 });
 
 export const categorySchema = z.object({
@@ -51,6 +70,7 @@ export const orderCreateSchema = z.object({
   locationSlug: z.string().min(1),
   tableLabel: z.string().max(20).optional(),
   guestName: z.string().max(40).optional(),
+  tipCents: z.number().int().min(0).max(20_000).default(0),
   items: z
     .array(
       z.object({

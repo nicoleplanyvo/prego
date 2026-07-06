@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-and-smoke:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: prego
+          POSTGRES_PASSWORD: prego
+          POSTGRES_DB: prego
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U prego"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://prego:prego@localhost:5432/prego?schema=public
+      APP_URL: http://localhost:3300
+      PORT: '3300'
+      JWT_SECRET: ci-secret-ci-secret-ci-secret-1234
+      STRIPE_SECRET_KEY: sk_test_dummy
+      STRIPE_WEBHOOK_SECRET: whsec_dummy
+      STRIPE_PRICE_ID_MONTHLY: price_dummy
+      PLATFORM_FEE_PERCENT: '2'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            server/package-lock.json
+            client/package-lock.json
+
+      - name: Server – Dependencies & Build
+        working-directory: server
+        run: |
+          npm ci
+          npm run build
+
+      - name: Client – Dependencies & Build
+        working-directory: client
+        run: |
+          npm ci
+          npm run build
+
+      - name: Datenbank vorbereiten (Schema + Seed)
+        working-directory: server
+        run: |
+          npx prisma db push
+          npm run prisma:seed
+
+      - name: Server starten & Smoke-Tests
+        working-directory: server
+        run: |
+          node dist/index.js &
+          for i in $(seq 1 20); do
+            curl -sf http://localhost:3300/api/health && break
+            sleep 0.5
+          done
+          node test/smoke.mjs

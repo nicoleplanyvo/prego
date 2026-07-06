@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, euro, getStaffLocation, getStaffToken, setStaffSession, ApiRequestError } from '../../api';
-import type { BoardOrder, OrderStatus } from '../../types';
+import type { BoardOrder, OrderStatus, StaffLocationState } from '../../types';
 
 type BoardColumn = 'NEW' | 'IN_PROGRESS' | 'READY';
 
@@ -31,6 +31,22 @@ export default function BoardPage(): JSX.Element {
     refetchInterval: 30_000, // Sicherheitsnetz, falls SSE hängt
   });
 
+  const { data: locationState } = useQuery({
+    queryKey: ['board-location'],
+    queryFn: () => api<StaffLocationState>('/api/staff/location', { auth: 'staff' }),
+    enabled: Boolean(token),
+  });
+
+  const togglePause = useMutation({
+    mutationFn: (acceptingOrders: boolean) =>
+      api<StaffLocationState>('/api/staff/location', {
+        method: 'PATCH',
+        auth: 'staff',
+        body: { acceptingOrders },
+      }),
+    onSuccess: (data) => queryClient.setQueryData(['board-location'], data),
+  });
+
   useEffect(() => {
     if (error instanceof ApiRequestError && error.status === 401) {
       setStaffSession(null, null);
@@ -42,7 +58,17 @@ export default function BoardPage(): JSX.Element {
   useEffect(() => {
     if (!token) return undefined;
     const source = new EventSource(`/api/staff/stream?token=${encodeURIComponent(token)}`);
-    source.onmessage = () => {
+    source.onmessage = (event) => {
+      try {
+        const payload = JSON.parse(event.data as string) as { type: string };
+        if (payload.type === 'location.updated') {
+          // Bestellstopp von einem anderen Gerät umgeschaltet
+          void queryClient.invalidateQueries({ queryKey: ['board-location'] });
+          return;
+        }
+      } catch {
+        /* ignorieren */
+      }
       void queryClient.invalidateQueries({ queryKey: ['board'] });
       playBeep(audioCtxRef);
     };
@@ -84,17 +110,40 @@ export default function BoardPage(): JSX.Element {
             {isPickup ? 'Abhol-Modus' : 'Service-Modus'}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => {
-            setStaffSession(null, null);
-            navigate('/staff', { replace: true });
-          }}
-          className="border border-ivory/20 px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.15em] text-ivory/60 transition hover:border-champagne hover:text-champagne"
-        >
-          Schicht beenden
-        </button>
+        <div className="flex items-center gap-2">
+          {locationState && (
+            <button
+              type="button"
+              onClick={() => togglePause.mutate(!locationState.acceptingOrders)}
+              disabled={togglePause.isPending}
+              aria-pressed={!locationState.acceptingOrders}
+              className={`px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.15em] transition disabled:opacity-50 ${
+                locationState.acceptingOrders
+                  ? 'border border-ivory/20 text-ivory/60 hover:border-red-400/60 hover:text-red-300'
+                  : 'animate-pulse bg-red-400/90 text-noir'
+              }`}
+            >
+              {locationState.acceptingOrders ? 'Bestellstopp' : 'Pausiert – öffnen'}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              setStaffSession(null, null);
+              navigate('/staff', { replace: true });
+            }}
+            className="border border-ivory/20 px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.15em] text-ivory/60 transition hover:border-champagne hover:text-champagne"
+          >
+            Schicht beenden
+          </button>
+        </div>
       </header>
+
+      {locationState && !locationState.acceptingOrders && (
+        <p className="border-b border-red-400/30 bg-red-950/40 px-5 py-2.5 text-center text-xs font-bold uppercase tracking-[0.15em] text-red-300">
+          Bestellstopp aktiv – Gäste können gerade nicht bestellen
+        </p>
+      )}
 
       {/* Mobile: Spalten-Tabs */}
       <nav className="flex gap-1 border-b border-ivory/10 px-3 py-2.5 md:hidden" aria-label="Spalten">
@@ -184,7 +233,10 @@ function OrderCard(props: {
         ))}
       </ul>
 
-      <p className="mt-3 font-display text-sm italic text-ivory/40">{euro(order.subtotalCents)}</p>
+      <p className="mt-3 font-display text-sm italic text-ivory/40">
+        {euro(order.subtotalCents)}
+        {order.tipCents > 0 && <span className="text-champagne/70"> + {euro(order.tipCents)} Trinkgeld</span>}
+      </p>
 
       <div className="mt-4 flex gap-2">
         {action && (

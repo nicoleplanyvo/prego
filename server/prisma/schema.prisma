@@ -31,6 +31,9 @@ model Tenant {
   stripeCustomerId     String?
   stripeSubscriptionId String?
   subscriptionStatus   String     @default("none")
+  logoDataUrl          String?
+  brandAccent          String?
+  brandBg              String?
   locations            Location[]
   createdAt            DateTime   @default(now())
   updatedAt            DateTime   @updatedAt
@@ -46,6 +49,7 @@ model Location {
   staffPinHash String
   currency     String         @default("eur")
   active       Boolean        @default(true)
+  acceptingOrders Boolean     @default(true)
   orderCounter Int            @default(0)
   categories   MenuCategory[]
   orders       Order[]
@@ -85,9 +89,11 @@ model Order {
   guestName        String?
   status           OrderStatus @default(PENDING_PAYMENT)
   subtotalCents    Int
+  tipCents         Int         @default(0)
   feeCents         Int
   currency         String      @default("eur")
   paymentIntentId  String?     @unique
+  refundedAt       DateTime?
   pushSubscription Json?
   items            OrderItem[]
   createdAt        DateTime    @default(now())

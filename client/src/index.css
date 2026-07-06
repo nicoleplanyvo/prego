@@ -2,6 +2,17 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Standard-Farbwelt (noir/champagne). Gast-Seiten überschreiben die Variablen
+   per Inline-Style, wenn der Gastronom eigenes Branding gesetzt hat. */
+:root {
+  --c-noir: 11 10 8;
+  --c-carta: 22 20 16;
+  --c-ivory: 242 237 227;
+  --c-champagne: 201 169 106;
+  --c-champagne-dark: 176 143 79;
+  --c-oliva: 156 184 156;
+}
+
 html {
   -webkit-tap-highlight-color: transparent;
 }

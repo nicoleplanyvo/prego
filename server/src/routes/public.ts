@@ -11,6 +11,11 @@ import { config } from '../config';
 
 export const publicRouter = Router();
 
+/** Branding-Felder des Tenants in die kompakte Client-Form bringen. */
+function brandingOf(tenant: { logoDataUrl: string | null; brandAccent: string | null; brandBg: string | null }) {
+  return { logoDataUrl: tenant.logoDataUrl, accent: tenant.brandAccent, bg: tenant.brandBg };
+}
+
 const orderPublicSelect = {
   id: true,
   publicToken: true,
@@ -20,8 +25,10 @@ const orderPublicSelect = {
   tableLabel: true,
   guestName: true,
   subtotalCents: true,
+  tipCents: true,
   currency: true,
   createdAt: true,
+  refundedAt: true,
   items: { select: { id: true, name: true, priceCents: true, quantity: true, note: true } },
 } satisfies Prisma.OrderSelect;
 
@@ -37,8 +44,11 @@ publicRouter.get(
         slug: true,
         mode: true,
         active: true,
+        acceptingOrders: true,
         currency: true,
-        tenant: { select: { name: true, stripeChargesEnabled: true } },
+        tenant: {
+          select: { name: true, stripeChargesEnabled: true, logoDataUrl: true, brandAccent: true, brandBg: true },
+        },
         categories: {
           orderBy: { sortOrder: 'asc' },
           select: {
@@ -54,13 +64,19 @@ publicRouter.get(
       },
     });
     if (!location || !location.active) throw new ApiError(404, 'Diese Bar ist gerade nicht aktiv.');
+    const queueSize = await prisma.order.count({
+      where: { locationId: location.id, status: { in: ['NEW', 'IN_PROGRESS'] } },
+    });
     res.json({
       id: location.id,
       name: location.name,
+      queueSize,
       slug: location.slug,
       mode: location.mode,
+      acceptingOrders: location.acceptingOrders,
       currency: location.currency,
       barName: location.tenant.name,
+      branding: brandingOf(location.tenant),
       paymentsReady: location.tenant.stripeChargesEnabled,
       pushAvailable: isPushEnabled(),
       vapidPublicKey: isPushEnabled() ? config.VAPID_PUBLIC_KEY : null,
@@ -79,6 +95,9 @@ publicRouter.post(
       include: { tenant: true },
     });
     if (!location || !location.active) throw new ApiError(404, 'Diese Bar ist gerade nicht aktiv.');
+    if (!location.acceptingOrders) {
+      throw new ApiError(409, 'Bestellstopp – die Bar nimmt gerade keine neuen Bestellungen an. Bitte gleich nochmal versuchen.');
+    }
     if (!location.tenant.stripeAccountId || !location.tenant.stripeChargesEnabled) {
       throw new ApiError(409, 'Diese Bar kann aktuell keine Zahlungen annehmen.');
     }
@@ -105,6 +124,9 @@ publicRouter.post(
     }
     if (subtotalCents < 50) throw new ApiError(400, 'Mindestbestellwert ist 0,50 €.');
 
+    // Trinkgeld geht zu 100 % an die Bar – die Plattform-Fee wird nur auf die Bestellsumme berechnet.
+    const tipCents = Math.min(body.tipCents, subtotalCents);
+    const totalCents = subtotalCents + tipCents;
     const feeCents = calcPlatformFeeCents(subtotalCents);
 
     const order = await prisma.$transaction(async (tx) => {
@@ -121,6 +143,7 @@ publicRouter.post(
           tableLabel: location.mode === 'SERVICE' ? (body.tableLabel ?? null) : null,
           guestName: body.guestName ?? null,
           subtotalCents,
+          tipCents,
           feeCents,
           currency: location.currency,
           items: { create: orderItems },
@@ -130,7 +153,7 @@ publicRouter.post(
     });
 
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: subtotalCents,
+      amount: totalCents,
       currency: location.currency,
       automatic_payment_methods: { enabled: true },
       application_fee_amount: feeCents,
@@ -154,10 +177,31 @@ publicRouter.get(
   asyncHandler(async (req, res) => {
     const order = await prisma.order.findUnique({
       where: { publicToken: req.params.token as string },
-      select: { ...orderPublicSelect, location: { select: { name: true } } },
+      select: {
+        ...orderPublicSelect,
+        locationId: true,
+        location: {
+          select: {
+            name: true,
+            tenant: { select: { logoDataUrl: true, brandAccent: true, brandBg: true } },
+          },
+        },
+      },
     });
     if (!order) throw new ApiError(404, 'Bestellung nicht gefunden.');
-    res.json(order);
+    // Warteschlange: ältere, noch offene Bestellungen desselben Standorts
+    const queueAhead =
+      order.status === 'NEW' || order.status === 'IN_PROGRESS'
+        ? await prisma.order.count({
+            where: {
+              locationId: order.locationId,
+              status: { in: ['NEW', 'IN_PROGRESS'] },
+              createdAt: { lt: order.createdAt },
+            },
+          })
+        : 0;
+    const { location, locationId: _locationId, ...rest } = order;
+    res.json({ ...rest, location: { name: location.name }, branding: brandingOf(location.tenant), queueAhead });
   })
 );
 

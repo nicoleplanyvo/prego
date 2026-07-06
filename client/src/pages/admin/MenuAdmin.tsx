@@ -44,6 +44,20 @@ export default function MenuAdmin(): JSX.Element {
   );
 }
 
+/** Euro-Eingabe („8,50") → Cent; NaN bei ungültiger Eingabe. */
+function parsePriceCents(input: string): number {
+  return Math.round(parseFloat(input.trim().replace(',', '.')) * 100);
+}
+
+function isPriceValid(input: string): boolean {
+  return /^\d+([.,]\d{1,2})?$/.test(input.trim());
+}
+
+/** Cent → Eingabe-String („8,50") fürs Bearbeiten-Formular. */
+function formatPriceInput(cents: number): string {
+  return (cents / 100).toFixed(2).replace('.', ',');
+}
+
 function MenuEditor(props: { locationId: string }): JSX.Element {
   const queryClient = useQueryClient();
   const [newCategory, setNewCategory] = useState('');
@@ -74,14 +88,39 @@ function MenuEditor(props: { locationId: string }): JSX.Element {
     onSettled: invalidate,
   });
 
+  // Nachbarn tauschen – die Array-Indizes normalisieren die sortOrder nebenbei.
+  const moveCategory = useMutation({
+    mutationFn: async (input: { index: number; direction: -1 | 1 }) => {
+      const current = categories[input.index];
+      const neighbor = categories[input.index + input.direction];
+      if (!current || !neighbor) return;
+      await Promise.all([
+        api(`/api/admin/categories/${current.id}`, {
+          method: 'PATCH',
+          auth: 'admin',
+          body: { sortOrder: input.index + input.direction },
+        }),
+        api(`/api/admin/categories/${neighbor.id}`, {
+          method: 'PATCH',
+          auth: 'admin',
+          body: { sortOrder: input.index },
+        }),
+      ]);
+    },
+    onSettled: invalidate,
+  });
+
   if (isLoading) return <p className="mt-6 text-ivory/60">Speisekarte wird geladen …</p>;
 
   return (
     <div className="mt-4 space-y-5">
-      {categories.map((category) => (
+      {categories.map((category, index) => (
         <CategoryBlock
           key={category.id}
           category={category}
+          canMoveUp={index > 0}
+          canMoveDown={index < categories.length - 1}
+          onMove={(direction) => moveCategory.mutate({ index, direction })}
           onChanged={invalidate}
           onDelete={() => {
             if (window.confirm(`Kategorie „${category.name}" inkl. aller Artikel löschen?`)) {
@@ -112,12 +151,22 @@ function MenuEditor(props: { locationId: string }): JSX.Element {
   );
 }
 
-function CategoryBlock(props: { category: AdminCategory; onChanged: () => void; onDelete: () => void }): JSX.Element {
+function CategoryBlock(props: {
+  category: AdminCategory;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
+  onMove: (direction: -1 | 1) => void;
+  onChanged: () => void;
+  onDelete: () => void;
+}): JSX.Element {
   const { category } = props;
   const [showItemForm, setShowItemForm] = useState(false);
   const [itemName, setItemName] = useState('');
   const [itemDescription, setItemDescription] = useState('');
   const [itemPrice, setItemPrice] = useState('');
+  const [renaming, setRenaming] = useState(false);
+  const [nameDraft, setNameDraft] = useState(category.name);
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
 
   const addItem = useMutation({
     mutationFn: () =>
@@ -127,7 +176,7 @@ function CategoryBlock(props: { category: AdminCategory; onChanged: () => void; 
         body: {
           name: itemName,
           description: itemDescription.trim() || null,
-          priceCents: Math.round(parseFloat(itemPrice.replace(',', '.')) * 100),
+          priceCents: parsePriceCents(itemPrice),
           available: true,
           sortOrder: category.items.length,
         },
@@ -137,6 +186,19 @@ function CategoryBlock(props: { category: AdminCategory; onChanged: () => void; 
       setItemDescription('');
       setItemPrice('');
       setShowItemForm(false);
+      props.onChanged();
+    },
+  });
+
+  const renameCategory = useMutation({
+    mutationFn: () =>
+      api<AdminCategory>(`/api/admin/categories/${category.id}`, {
+        method: 'PATCH',
+        auth: 'admin',
+        body: { name: nameDraft.trim() },
+      }),
+    onSuccess: () => {
+      setRenaming(false);
       props.onChanged();
     },
   });
@@ -156,12 +218,80 @@ function CategoryBlock(props: { category: AdminCategory; onChanged: () => void; 
     onSettled: props.onChanged,
   });
 
-  const priceValid = /^\d+([.,]\d{1,2})?$/.test(itemPrice.trim());
+  const moveItem = useMutation({
+    mutationFn: async (input: { index: number; direction: -1 | 1 }) => {
+      const current = category.items[input.index];
+      const neighbor = category.items[input.index + input.direction];
+      if (!current || !neighbor) return;
+      await Promise.all([
+        api(`/api/admin/items/${current.id}`, {
+          method: 'PATCH',
+          auth: 'admin',
+          body: { sortOrder: input.index + input.direction },
+        }),
+        api(`/api/admin/items/${neighbor.id}`, {
+          method: 'PATCH',
+          auth: 'admin',
+          body: { sortOrder: input.index },
+        }),
+      ]);
+    },
+    onSettled: props.onChanged,
+  });
+
+  const priceValid = isPriceValid(itemPrice);
 
   return (
     <section className="rounded-2xl border border-ivory/10 bg-carta p-5 shadow-sm">
-      <div className="flex items-center justify-between">
-        <h3 className="text-base font-extrabold">{category.name}</h3>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        {renaming ? (
+          <div className="flex flex-1 gap-2">
+            <input
+              type="text"
+              value={nameDraft}
+              onChange={(e) => setNameDraft(e.target.value)}
+              maxLength={60}
+              aria-label="Kategorie umbenennen"
+              className="flex-1 rounded-lg border-2 border-ivory/15 px-3 py-1.5 text-sm font-bold focus:border-champagne focus:outline-none"
+            />
+            <button
+              type="button"
+              onClick={() => renameCategory.mutate()}
+              disabled={renameCategory.isPending || nameDraft.trim().length === 0}
+              className="rounded-lg bg-champagne px-3 py-1.5 text-sm font-bold text-noir transition hover:bg-champagne-dark disabled:opacity-50"
+            >
+              Speichern
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setRenaming(false);
+                setNameDraft(category.name);
+              }}
+              className="rounded-lg border-2 border-ivory/15 px-3 py-1.5 text-sm font-bold transition hover:border-ivory/30"
+            >
+              Abbrechen
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <h3 className="text-base font-extrabold">{category.name}</h3>
+            <button
+              type="button"
+              onClick={() => setRenaming(true)}
+              aria-label={`Kategorie ${category.name} umbenennen`}
+              className="rounded-lg px-1.5 py-1 text-sm text-ivory/40 transition hover:text-champagne"
+            >
+              ✎
+            </button>
+            <MoveButtons
+              label={`Kategorie ${category.name}`}
+              canUp={props.canMoveUp}
+              canDown={props.canMoveDown}
+              onMove={props.onMove}
+            />
+          </div>
+        )}
         <div className="flex gap-2">
           <button
             type="button"
@@ -220,35 +350,164 @@ function CategoryBlock(props: { category: AdminCategory; onChanged: () => void; 
 
       <ul className="mt-3 divide-y divide-ivory/10">
         {category.items.length === 0 && <li className="py-3 text-sm text-ivory/45">Noch keine Artikel.</li>}
-        {category.items.map((item) => (
-          <li key={item.id} className="flex items-center gap-3 py-3">
-            <div className="min-w-0 flex-1">
-              <p className={`font-semibold ${item.available ? '' : 'text-ivory/35 line-through'}`}>{item.name}</p>
-              {item.description && <p className="truncate text-sm text-ivory/50">{item.description}</p>}
-            </div>
-            <p className="font-semibold text-ivory/80">{euro(item.priceCents)}</p>
-            <button
-              type="button"
-              onClick={() => toggleItem.mutate(item)}
-              className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
-                item.available ? 'bg-oliva/10 text-oliva hover:bg-oliva/20' : 'bg-ivory/10 text-ivory/50 hover:bg-ivory/15'
-              }`}
-            >
-              {item.available ? 'Verfügbar' : 'Ausverkauft'}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                if (window.confirm(`„${item.name}" löschen?`)) deleteItem.mutate(item.id);
+        {category.items.map((item, index) =>
+          editingItemId === item.id ? (
+            <ItemEditRow
+              key={item.id}
+              item={item}
+              onDone={() => {
+                setEditingItemId(null);
+                props.onChanged();
               }}
-              aria-label={`${item.name} löschen`}
-              className="rounded-lg border-2 border-ivory/10 px-2.5 py-1.5 text-xs font-bold text-red-300 transition hover:border-red-400/60"
-            >
-              ✕
-            </button>
-          </li>
-        ))}
+              onCancel={() => setEditingItemId(null)}
+            />
+          ) : (
+            <li key={item.id} className="flex items-center gap-2 py-3 sm:gap-3">
+              <MoveButtons
+                label={item.name}
+                canUp={index > 0}
+                canDown={index < category.items.length - 1}
+                onMove={(direction) => moveItem.mutate({ index, direction })}
+              />
+              <div className="min-w-0 flex-1">
+                <p className={`font-semibold ${item.available ? '' : 'text-ivory/35 line-through'}`}>{item.name}</p>
+                {item.description && <p className="truncate text-sm text-ivory/50">{item.description}</p>}
+              </div>
+              <p className="font-semibold text-ivory/80">{euro(item.priceCents)}</p>
+              <button
+                type="button"
+                onClick={() => setEditingItemId(item.id)}
+                aria-label={`${item.name} bearbeiten`}
+                className="rounded-lg border-2 border-ivory/10 px-2.5 py-1.5 text-xs font-bold text-ivory/60 transition hover:border-champagne hover:text-champagne"
+              >
+                ✎
+              </button>
+              <button
+                type="button"
+                onClick={() => toggleItem.mutate(item)}
+                className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+                  item.available ? 'bg-oliva/10 text-oliva hover:bg-oliva/20' : 'bg-ivory/10 text-ivory/50 hover:bg-ivory/15'
+                }`}
+              >
+                {item.available ? 'Verfügbar' : 'Ausverkauft'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.confirm(`„${item.name}" löschen?`)) deleteItem.mutate(item.id);
+                }}
+                aria-label={`${item.name} löschen`}
+                className="rounded-lg border-2 border-ivory/10 px-2.5 py-1.5 text-xs font-bold text-red-300 transition hover:border-red-400/60"
+              >
+                ✕
+              </button>
+            </li>
+          )
+        )}
       </ul>
     </section>
+  );
+}
+
+/** Inline-Bearbeitung eines Artikels: Name, Beschreibung, Preis. */
+function ItemEditRow(props: { item: AdminMenuItem; onDone: () => void; onCancel: () => void }): JSX.Element {
+  const { item } = props;
+  const [name, setName] = useState(item.name);
+  const [description, setDescription] = useState(item.description ?? '');
+  const [price, setPrice] = useState(formatPriceInput(item.priceCents));
+
+  const updateItem = useMutation({
+    mutationFn: () =>
+      api<AdminMenuItem>(`/api/admin/items/${item.id}`, {
+        method: 'PATCH',
+        auth: 'admin',
+        body: {
+          name: name.trim(),
+          description: description.trim() || null,
+          priceCents: parsePriceCents(price),
+        },
+      }),
+    onSuccess: props.onDone,
+  });
+
+  const valid = name.trim().length > 0 && isPriceValid(price);
+
+  return (
+    <li className="py-3">
+      <div className="grid gap-2 rounded-xl bg-ivory/5 p-3 sm:grid-cols-[1fr_1fr_auto]">
+        <input
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          maxLength={80}
+          aria-label="Artikelname"
+          className="rounded-lg border-2 border-ivory/15 px-3 py-2 text-sm focus:border-champagne focus:outline-none"
+        />
+        <input
+          type="text"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          maxLength={200}
+          placeholder="Beschreibung (optional)"
+          aria-label="Beschreibung"
+          className="rounded-lg border-2 border-ivory/15 px-3 py-2 text-sm focus:border-champagne focus:outline-none"
+        />
+        <div className="flex gap-2">
+          <input
+            type="text"
+            inputMode="decimal"
+            value={price}
+            onChange={(e) => setPrice(e.target.value)}
+            aria-label="Preis in Euro"
+            className="w-24 rounded-lg border-2 border-ivory/15 px-3 py-2 text-sm focus:border-champagne focus:outline-none"
+          />
+          <button
+            type="button"
+            onClick={() => updateItem.mutate()}
+            disabled={updateItem.isPending || !valid}
+            className="rounded-lg bg-champagne px-4 py-2 text-sm font-bold text-noir transition hover:bg-champagne-dark disabled:opacity-50"
+          >
+            Speichern
+          </button>
+          <button
+            type="button"
+            onClick={props.onCancel}
+            className="rounded-lg border-2 border-ivory/15 px-3 py-2 text-sm font-bold transition hover:border-ivory/30"
+          >
+            Abbrechen
+          </button>
+        </div>
+      </div>
+    </li>
+  );
+}
+
+function MoveButtons(props: {
+  label: string;
+  canUp: boolean;
+  canDown: boolean;
+  onMove: (direction: -1 | 1) => void;
+}): JSX.Element {
+  return (
+    <span className="flex shrink-0 flex-col">
+      <button
+        type="button"
+        onClick={() => props.onMove(-1)}
+        disabled={!props.canUp}
+        aria-label={`${props.label} nach oben`}
+        className="px-1 text-xs leading-4 text-ivory/40 transition hover:text-champagne disabled:opacity-20"
+      >
+        ▲
+      </button>
+      <button
+        type="button"
+        onClick={() => props.onMove(1)}
+        disabled={!props.canDown}
+        aria-label={`${props.label} nach unten`}
+        className="px-1 text-xs leading-4 text-ivory/40 transition hover:text-champagne disabled:opacity-20"
+      >
+        ▼
+      </button>
+    </span>
   );
 }

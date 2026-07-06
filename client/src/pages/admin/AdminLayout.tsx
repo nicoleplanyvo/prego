@@ -5,6 +5,9 @@ import { getAdminToken, setAdminToken } from '../../api';
 const tabs = [
   { to: '/admin/locations', label: 'Standorte' },
   { to: '/admin/menu', label: 'Speisekarte' },
+  { to: '/admin/design', label: 'Design' },
+  { to: '/admin/orders', label: 'Bestellungen' },
+  { to: '/admin/stats', label: 'Auswertung' },
   { to: '/admin/stripe', label: 'Stripe & Abo' },
 ];
 
@@ -36,7 +39,7 @@ export default function AdminLayout(): JSX.Element {
         </button>
       </header>
 
-      <nav className="flex gap-1 rounded-xl bg-ivory/10 p-1" aria-label="Bereiche">
+      <nav className="flex flex-wrap gap-1 rounded-xl bg-ivory/10 p-1" aria-label="Bereiche">
         {tabs.map((tab) => (
           <NavLink
             key={tab.to}
