@@ -1,0 +1,12 @@
+{
+  "name": "prego",
+  "version": "1.0.0",
+  "private": true,
+  "description": "prego. – Order Management für mobile Bars",
+  "scripts": {
+    "install:all": "cd server && npm install && cd ../client && npm install",
+    "build": "cd client && npm run build && cd ../server && npm run build && rm -rf server/public && cp -r client/dist server/public",
+    "dev:server": "cd server && npm run dev",
+    "dev:client": "cd client && npm run dev"
+  }
+}

@@ -1,0 +1,110 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum OrderMode {
+  PICKUP
+  SERVICE
+}
+
+enum OrderStatus {
+  PENDING_PAYMENT
+  NEW
+  IN_PROGRESS
+  READY
+  COMPLETED
+  CANCELLED
+}
+
+model Tenant {
+  id                   String     @id @default(cuid())
+  name                 String
+  email                String     @unique
+  passwordHash         String
+  stripeAccountId      String?
+  stripeChargesEnabled Boolean    @default(false)
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
+  subscriptionStatus   String     @default("none")
+  locations            Location[]
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
+}
+
+model Location {
+  id           String         @id @default(cuid())
+  tenantId     String
+  tenant       Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name         String
+  slug         String         @unique
+  mode         OrderMode      @default(PICKUP)
+  staffPinHash String
+  currency     String         @default("eur")
+  active       Boolean        @default(true)
+  orderCounter Int            @default(0)
+  categories   MenuCategory[]
+  orders       Order[]
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+}
+
+model MenuCategory {
+  id         String     @id @default(cuid())
+  locationId String
+  location   Location   @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  name       String
+  sortOrder  Int        @default(0)
+  items      MenuItem[]
+}
+
+model MenuItem {
+  id          String       @id @default(cuid())
+  categoryId  String
+  category    MenuCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  priceCents  Int
+  available   Boolean      @default(true)
+  sortOrder   Int          @default(0)
+  orderItems  OrderItem[]
+}
+
+model Order {
+  id               String      @id @default(cuid())
+  publicToken      String      @unique @default(uuid())
+  locationId       String
+  location         Location    @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  number           Int
+  mode             OrderMode
+  tableLabel       String?
+  guestName        String?
+  status           OrderStatus @default(PENDING_PAYMENT)
+  subtotalCents    Int
+  feeCents         Int
+  currency         String      @default("eur")
+  paymentIntentId  String?     @unique
+  pushSubscription Json?
+  items            OrderItem[]
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  @@unique([locationId, number])
+  @@index([locationId, status])
+}
+
+model OrderItem {
+  id         String    @id @default(cuid())
+  orderId    String
+  order      Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItemId String?
+  menuItem   MenuItem? @relation(fields: [menuItemId], references: [id], onDelete: SetNull)
+  name       String
+  priceCents Int
+  quantity   Int
+  note       String?
+}
