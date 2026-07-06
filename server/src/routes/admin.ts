@@ -4,7 +4,7 @@ import type { OrderStatus } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { requireAdmin } from '../middleware/auth';
 import { ApiError, asyncHandler } from '../middleware/error';
-import { categorySchema, locationCreateSchema, locationUpdateSchema, menuItemSchema } from '../schemas';
+import { brandingSchema, categorySchema, locationCreateSchema, locationUpdateSchema, menuItemSchema } from '../schemas';
 
 export const adminRouter = Router();
 adminRouter.use(requireAdmin);
@@ -28,9 +28,30 @@ adminRouter.get(
         stripeAccountId: true,
         stripeChargesEnabled: true,
         subscriptionStatus: true,
+        logoDataUrl: true,
+        brandAccent: true,
+        brandBg: true,
       },
     });
     if (!tenant) throw new ApiError(404, 'Konto nicht gefunden.');
+    res.json(tenant);
+  })
+);
+
+/** Branding (Logo + Farben) – gilt für alle Gast-Seiten des Gastronomen. */
+adminRouter.patch(
+  '/branding',
+  asyncHandler(async (req, res) => {
+    const body = brandingSchema.parse(req.body);
+    const tenant = await prisma.tenant.update({
+      where: { id: req.admin!.tenantId },
+      data: {
+        logoDataUrl: body.logoDataUrl,
+        brandAccent: body.brandAccent,
+        brandBg: body.brandBg,
+      },
+      select: { logoDataUrl: true, brandAccent: true, brandBg: true },
+    });
     res.json(tenant);
   })
 );

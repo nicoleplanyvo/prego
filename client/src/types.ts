@@ -21,6 +21,12 @@ export interface PublicCategory {
   items: PublicMenuItem[];
 }
 
+export interface Branding {
+  logoDataUrl: string | null;
+  accent: string | null;
+  bg: string | null;
+}
+
 export interface PublicLocation {
   id: string;
   name: string;
@@ -29,6 +35,7 @@ export interface PublicLocation {
   acceptingOrders: boolean;
   currency: string;
   barName: string;
+  branding: Branding;
   paymentsReady: boolean;
   pushAvailable: boolean;
   vapidPublicKey: string | null;
@@ -57,6 +64,7 @@ export interface PublicOrder {
   createdAt: string;
   items: OrderItemView[];
   location?: { name: string };
+  branding?: Branding;
 }
 
 export interface BoardOrderItem {
@@ -134,4 +142,7 @@ export interface TenantMe {
   stripeAccountId: string | null;
   stripeChargesEnabled: boolean;
   subscriptionStatus: string;
+  logoDataUrl: string | null;
+  brandAccent: string | null;
+  brandBg: string | null;
 }

@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { api, euro } from '../../api';
 import { useCart, cartTotalCents, cartItemCount, cartTipCents } from '../../store/cart';
+import { BrandedShell, BrandLogo } from '../../branding';
 import type { PublicLocation, PublicOrder } from '../../types';
 
 interface CreateOrderResponse {
@@ -60,6 +61,7 @@ export default function MenuPage(): JSX.Element {
           amountCents: data.order.subtotalCents + data.order.tipCents,
           tipCents: data.order.tipCents,
           locationName: location?.name ?? '',
+          branding: location?.branding ?? null,
         },
       });
     },
@@ -74,8 +76,10 @@ export default function MenuPage(): JSX.Element {
   }
 
   return (
+    <BrandedShell branding={location.branding}>
     <div className="mx-auto min-h-screen max-w-lg pb-36">
       <header className="sticky top-0 z-10 border-b border-ivory/10 bg-noir/90 px-6 pb-5 pt-7 backdrop-blur">
+        <BrandLogo branding={location.branding} barName={location.barName} className="mb-3" />
         <p className="text-[11px] font-semibold uppercase tracking-luxe text-champagne">{location.barName}</p>
         <h1 className="mt-1.5 font-display text-4xl font-medium tracking-tight">{location.name}</h1>
         {location.mode === 'SERVICE' && cart.tableLabel && (
@@ -241,6 +245,7 @@ export default function MenuPage(): JSX.Element {
         </div>
       )}
     </div>
+    </BrandedShell>
   );
 }
 

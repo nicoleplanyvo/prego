@@ -11,6 +11,11 @@ import { config } from '../config';
 
 export const publicRouter = Router();
 
+/** Branding-Felder des Tenants in die kompakte Client-Form bringen. */
+function brandingOf(tenant: { logoDataUrl: string | null; brandAccent: string | null; brandBg: string | null }) {
+  return { logoDataUrl: tenant.logoDataUrl, accent: tenant.brandAccent, bg: tenant.brandBg };
+}
+
 const orderPublicSelect = {
   id: true,
   publicToken: true,
@@ -40,7 +45,9 @@ publicRouter.get(
         active: true,
         acceptingOrders: true,
         currency: true,
-        tenant: { select: { name: true, stripeChargesEnabled: true } },
+        tenant: {
+          select: { name: true, stripeChargesEnabled: true, logoDataUrl: true, brandAccent: true, brandBg: true },
+        },
         categories: {
           orderBy: { sortOrder: 'asc' },
           select: {
@@ -64,6 +71,7 @@ publicRouter.get(
       acceptingOrders: location.acceptingOrders,
       currency: location.currency,
       barName: location.tenant.name,
+      branding: brandingOf(location.tenant),
       paymentsReady: location.tenant.stripeChargesEnabled,
       pushAvailable: isPushEnabled(),
       vapidPublicKey: isPushEnabled() ? config.VAPID_PUBLIC_KEY : null,
@@ -164,10 +172,19 @@ publicRouter.get(
   asyncHandler(async (req, res) => {
     const order = await prisma.order.findUnique({
       where: { publicToken: req.params.token as string },
-      select: { ...orderPublicSelect, location: { select: { name: true } } },
+      select: {
+        ...orderPublicSelect,
+        location: {
+          select: {
+            name: true,
+            tenant: { select: { logoDataUrl: true, brandAccent: true, brandBg: true } },
+          },
+        },
+      },
     });
     if (!order) throw new ApiError(404, 'Bestellung nicht gefunden.');
-    res.json(order);
+    const { location, ...rest } = order;
+    res.json({ ...rest, location: { name: location.name }, branding: brandingOf(location.tenant) });
   })
 );
 

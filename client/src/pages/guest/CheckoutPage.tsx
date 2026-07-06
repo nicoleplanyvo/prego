@@ -4,7 +4,8 @@ import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js';
 import { api, euro } from '../../api';
 import { useCart } from '../../store/cart';
-import type { PublicOrder } from '../../types';
+import { BrandedShell, DEFAULT_ACCENT, DEFAULT_BG } from '../../branding';
+import type { Branding, PublicOrder } from '../../types';
 
 interface CheckoutState {
   clientSecret: string;
@@ -13,6 +14,7 @@ interface CheckoutState {
   amountCents: number;
   tipCents: number;
   locationName: string;
+  branding: Branding | null;
 }
 
 const publishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY as string | undefined;
@@ -36,25 +38,27 @@ export default function CheckoutPage(): JSX.Element {
   }
 
   return (
-    <Elements
-      stripe={stripePromise}
-      options={{
-        clientSecret: state.clientSecret,
-        locale: 'de',
-        appearance: {
-          theme: 'night',
-          variables: {
-            colorPrimary: '#C9A96A',
-            colorBackground: '#161410',
-            colorText: '#F2EDE3',
-            borderRadius: '2px',
-            fontFamily: 'Manrope, system-ui, sans-serif',
+    <BrandedShell branding={state.branding}>
+      <Elements
+        stripe={stripePromise}
+        options={{
+          clientSecret: state.clientSecret,
+          locale: 'de',
+          appearance: {
+            theme: 'night',
+            variables: {
+              colorPrimary: state.branding?.accent ?? DEFAULT_ACCENT,
+              colorBackground: state.branding?.bg ?? DEFAULT_BG,
+              colorText: '#F2EDE3',
+              borderRadius: '2px',
+              fontFamily: 'Manrope, system-ui, sans-serif',
+            },
           },
-        },
-      }}
-    >
-      <CheckoutForm state={state} />
-    </Elements>
+        }}
+      >
+        <CheckoutForm state={state} />
+      </Elements>
+    </BrandedShell>
   );
 }
 

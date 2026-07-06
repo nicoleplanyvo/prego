@@ -32,6 +32,7 @@ sobald die Bestellung abholbereit ist – oder der Kellner serviert direkt an de
 - **Bestellstopp** – Barkeeper pausiert neue Bestellungen direkt vom Board (und öffnet wieder), der Betreiber sieht es im Admin und kann gegensteuern
 - **Umsatz-Auswertung** (`/admin/stats`) – Tagesumsatz, Trinkgeld, Ø Bonwert, 7/14/30-Tage-Verlauf, Top-Drinks, Umsatz je Standort
 - **Name für den Aufruf** – Gast kann im Abhol-Modus optional seinen Namen angeben, erscheint auf dem Board
+- **Eigenes Branding** (`/admin/design`) – Logo hochladen plus Akzent- und Hintergrundfarbe wählen; gilt für alle Gast-Seiten (Speisekarte, Checkout, Status), Admin und Board bleiben im prego-Look
 
 ## Stack
 
