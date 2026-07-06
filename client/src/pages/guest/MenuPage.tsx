@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { api, euro } from '../../api';
-import { useCart, cartTotalCents, cartItemCount } from '../../store/cart';
+import { useCart, cartTotalCents, cartItemCount, cartTipCents } from '../../store/cart';
 import type { PublicLocation, PublicOrder } from '../../types';
 
 interface CreateOrderResponse {
@@ -32,6 +32,8 @@ export default function MenuPage(): JSX.Element {
 
   const totalCents = useMemo(() => cartTotalCents(cart.lines), [cart.lines]);
   const itemCount = useMemo(() => cartItemCount(cart.lines), [cart.lines]);
+  const tipCents = useMemo(() => cartTipCents(cart.lines, cart.tipPercent), [cart.lines, cart.tipPercent]);
+  const payableCents = totalCents + tipCents;
 
   const createOrder = useMutation({
     mutationFn: () =>
@@ -40,6 +42,8 @@ export default function MenuPage(): JSX.Element {
         body: {
           locationSlug: slug,
           tableLabel: cart.tableLabel ?? undefined,
+          guestName: cart.guestName.trim() ? cart.guestName.trim() : undefined,
+          tipCents,
           items: cart.lines.map((l) => ({
             menuItemId: l.menuItemId,
             quantity: l.quantity,
@@ -53,7 +57,8 @@ export default function MenuPage(): JSX.Element {
           clientSecret: data.clientSecret,
           publicToken: data.order.publicToken,
           orderNumber: data.order.number,
-          amountCents: data.order.subtotalCents,
+          amountCents: data.order.subtotalCents + data.order.tipCents,
+          tipCents: data.order.tipCents,
           locationName: location?.name ?? '',
         },
       });
@@ -87,6 +92,12 @@ export default function MenuPage(): JSX.Element {
         </p>
       )}
 
+      {!location.acceptingOrders && (
+        <p className="mx-6 mt-5 border border-champagne/30 bg-champagne/10 p-4 text-sm text-champagne">
+          Kurzer Bestellstopp – die Bar arbeitet gerade alle Bestellungen ab. Bitte in ein paar Minuten neu laden.
+        </p>
+      )}
+
       <main className="px-6">
         {location.categories.map((category) => (
           <section key={category.id} className="mt-9">
@@ -116,7 +127,7 @@ export default function MenuPage(): JSX.Element {
                       <button
                         type="button"
                         onClick={() => cart.add({ menuItemId: item.id, name: item.name, priceCents: item.priceCents })}
-                        disabled={!location.paymentsReady}
+                        disabled={!location.paymentsReady || !location.acceptingOrders}
                         aria-label={`${item.name} hinzufügen`}
                         className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-ivory/25 text-xl font-light text-ivory transition hover:border-champagne hover:text-champagne disabled:opacity-30"
                       >
@@ -156,6 +167,54 @@ export default function MenuPage(): JSX.Element {
                   />
                 </div>
               ))}
+
+              {location.mode === 'PICKUP' && (
+                <div className="border-b border-ivory/[0.07] py-3.5">
+                  <label
+                    htmlFor="guest-name"
+                    className="text-[11px] font-semibold uppercase tracking-luxe text-champagne/90"
+                  >
+                    Name für den Aufruf
+                  </label>
+                  <input
+                    id="guest-name"
+                    type="text"
+                    value={cart.guestName}
+                    onChange={(e) => cart.setGuestName(e.target.value)}
+                    placeholder="Optional – z. B. Nicole"
+                    maxLength={40}
+                    className="mt-1.5 w-full border-b border-ivory/15 bg-transparent px-0 py-1.5 text-sm font-light text-ivory placeholder:text-ivory/30 focus:border-champagne focus:outline-none"
+                  />
+                </div>
+              )}
+
+              <div className="pt-3.5">
+                <p className="text-[11px] font-semibold uppercase tracking-luxe text-champagne/90">
+                  Trinkgeld fürs Team
+                </p>
+                <div className="mt-2.5 flex gap-2">
+                  {[0, 5, 10, 15].map((percent) => (
+                    <button
+                      key={percent}
+                      type="button"
+                      onClick={() => cart.setTipPercent(percent)}
+                      aria-pressed={cart.tipPercent === percent}
+                      className={`flex-1 py-2.5 text-xs font-bold uppercase tracking-[0.1em] transition ${
+                        cart.tipPercent === percent
+                          ? 'bg-champagne text-noir'
+                          : 'border border-ivory/20 text-ivory/60 hover:border-champagne hover:text-champagne'
+                      }`}
+                    >
+                      {percent === 0 ? 'Ohne' : `${percent} %`}
+                    </button>
+                  ))}
+                </div>
+                {tipCents > 0 && (
+                  <p className="mt-2 text-xs font-light text-ivory/45">
+                    + {euro(tipCents)} Trinkgeld – geht zu 100 % an die Bar.
+                  </p>
+                )}
+              </div>
             </div>
           )}
           {error && (
@@ -173,10 +232,10 @@ export default function MenuPage(): JSX.Element {
             <button
               type="button"
               onClick={() => createOrder.mutate()}
-              disabled={createOrder.isPending || !location.paymentsReady}
+              disabled={createOrder.isPending || !location.paymentsReady || !location.acceptingOrders}
               className="h-14 flex-1 bg-ivory text-sm font-bold uppercase tracking-[0.2em] text-noir shadow-xl shadow-black/50 transition hover:bg-champagne disabled:opacity-50"
             >
-              {createOrder.isPending ? 'Einen Moment …' : `Bezahlen · ${euro(totalCents)}`}
+              {createOrder.isPending ? 'Einen Moment …' : `Bezahlen · ${euro(payableCents)}`}
             </button>
           </div>
         </div>

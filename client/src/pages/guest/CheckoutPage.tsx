@@ -11,6 +11,7 @@ interface CheckoutState {
   publicToken: string;
   orderNumber: number;
   amountCents: number;
+  tipCents: number;
   locationName: string;
 }
 
@@ -105,6 +106,9 @@ function CheckoutForm(props: { state: CheckoutState }): JSX.Element {
         </h1>
         <p className="mt-2 font-light text-ivory/50">
           Gesamt <span className="font-display italic text-ivory">{euro(props.state.amountCents)}</span>
+          {props.state.tipCents > 0 && (
+            <span className="ml-2 text-sm text-ivory/40">inkl. {euro(props.state.tipCents)} Trinkgeld</span>
+          )}
         </p>
       </header>
 

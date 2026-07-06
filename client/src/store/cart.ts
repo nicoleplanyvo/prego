@@ -11,24 +11,30 @@ export interface CartLine {
 interface CartState {
   locationSlug: string | null;
   tableLabel: string | null;
+  guestName: string;
+  tipPercent: number;
   lines: CartLine[];
   setContext: (locationSlug: string, tableLabel: string | null) => void;
   add: (item: { menuItemId: string; name: string; priceCents: number }) => void;
   increment: (menuItemId: string) => void;
   decrement: (menuItemId: string) => void;
   setNote: (menuItemId: string, note: string) => void;
+  setGuestName: (guestName: string) => void;
+  setTipPercent: (tipPercent: number) => void;
   clear: () => void;
 }
 
 export const useCart = create<CartState>((set) => ({
   locationSlug: null,
   tableLabel: null,
+  guestName: '',
+  tipPercent: 0,
   lines: [],
   setContext: (locationSlug, tableLabel) =>
     set((state) => {
       // Neue Bar gescannt → alter Warenkorb ist irrelevant
       if (state.locationSlug !== locationSlug) {
-        return { locationSlug, tableLabel, lines: [] };
+        return { locationSlug, tableLabel, lines: [], guestName: '', tipPercent: 0 };
       }
       return { locationSlug, tableLabel: tableLabel ?? state.tableLabel };
     }),
@@ -58,7 +64,9 @@ export const useCart = create<CartState>((set) => ({
     set((state) => ({
       lines: state.lines.map((l) => (l.menuItemId === menuItemId ? { ...l, note } : l)),
     })),
-  clear: () => set({ lines: [] }),
+  setGuestName: (guestName) => set({ guestName }),
+  setTipPercent: (tipPercent) => set({ tipPercent }),
+  clear: () => set({ lines: [], guestName: '', tipPercent: 0 }),
 }));
 
 export function cartTotalCents(lines: CartLine[]): number {
@@ -67,4 +75,8 @@ export function cartTotalCents(lines: CartLine[]): number {
 
 export function cartItemCount(lines: CartLine[]): number {
   return lines.reduce((sum, l) => sum + l.quantity, 0);
+}
+
+export function cartTipCents(lines: CartLine[], tipPercent: number): number {
+  return Math.round((cartTotalCents(lines) * tipPercent) / 100);
 }

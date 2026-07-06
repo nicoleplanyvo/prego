@@ -6,7 +6,7 @@ import { prisma } from '../lib/prisma';
 import { signStaffToken } from '../lib/jwt';
 import { requireStaff } from '../middleware/auth';
 import { ApiError, asyncHandler } from '../middleware/error';
-import { staffLoginSchema, staffStatusSchema } from '../schemas';
+import { staffLocationUpdateSchema, staffLoginSchema, staffStatusSchema } from '../schemas';
 import { emitLocationEvent, emitOrderEvent, subscribeSse } from '../lib/events';
 import { sendPush } from '../lib/push';
 import { config } from '../config';
@@ -21,6 +21,7 @@ const boardOrderSelect = {
   tableLabel: true,
   guestName: true,
   subtotalCents: true,
+  tipCents: true,
   createdAt: true,
   items: { select: { id: true, name: true, quantity: true, note: true } },
 } as const;
@@ -38,6 +39,36 @@ staffRouter.post(
       token: signStaffToken(location.tenantId, location.id),
       location: { id: location.id, name: location.name, slug: location.slug, mode: location.mode },
     });
+  })
+);
+
+/** Aktueller Standort-Zustand fürs Board (u. a. Bestellstopp). */
+staffRouter.get(
+  '/location',
+  requireStaff,
+  asyncHandler(async (req, res) => {
+    const location = await prisma.location.findUnique({
+      where: { id: req.staff!.locationId },
+      select: { id: true, name: true, slug: true, mode: true, acceptingOrders: true },
+    });
+    if (!location) throw new ApiError(404, 'Standort nicht gefunden.');
+    res.json(location);
+  })
+);
+
+/** Bestellstopp direkt vom Board: bei Ansturm pausieren, danach wieder öffnen. */
+staffRouter.patch(
+  '/location',
+  requireStaff,
+  asyncHandler(async (req, res) => {
+    const body = staffLocationUpdateSchema.parse(req.body);
+    const location = await prisma.location.update({
+      where: { id: req.staff!.locationId },
+      data: { acceptingOrders: body.acceptingOrders },
+      select: { id: true, name: true, slug: true, mode: true, acceptingOrders: true },
+    });
+    emitLocationEvent(location.id, { type: 'location.updated', acceptingOrders: location.acceptingOrders });
+    res.json(location);
   })
 );
 

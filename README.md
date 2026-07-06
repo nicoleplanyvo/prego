@@ -8,8 +8,8 @@ sobald die Bestellung abholbereit ist – oder der Kellner serviert direkt an de
 | Ansicht | URL | Zweck |
 |---|---|---|
 | **Gast** | `/l/:slug` (QR-Ziel), `/checkout`, `/o/:token` | Speisekarte, Bezahlen, Live-Status |
-| **Barkeeper** | `/staff` → `/staff/board` | PIN-Login, 3-Spalten-Board (Neu / In Arbeit / Fertig) |
-| **Betreiber** | `/admin` | Standorte, Speisekarte, QR-Codes, Stripe & Abo |
+| **Barkeeper** | `/staff` → `/staff/board` | PIN-Login, 3-Spalten-Board (Neu / In Arbeit / Fertig), Bestellstopp |
+| **Betreiber** | `/admin` | Standorte, Speisekarte, QR-Codes, Umsatz-Auswertung, Stripe & Abo |
 
 ## Zwei Betriebsmodi (pro Standort)
 
@@ -24,6 +24,14 @@ sobald die Bestellung abholbereit ist – oder der Kellner serviert direkt an de
   (`application_fee_amount`, Geld fließt direkt an das Stripe-Konto der Bar, nie über die Plattform)
 - **Monatliche Grundgebühr** über Stripe Billing (Checkout + Customer Portal)
 - Fee-Prozentsatz konfigurierbar über `PLATFORM_FEE_PERCENT`
+- **Trinkgeld ist Fee-frei**: Gäste wählen beim Bestellen 5/10/15 % – der Betrag fließt ungekürzt an die Bar
+
+## Features für den Betrieb
+
+- **Trinkgeld beim Checkout** – ein Tap, ohne Kleingeld, komplett für die Bar
+- **Bestellstopp** – Barkeeper pausiert neue Bestellungen direkt vom Board (und öffnet wieder), der Betreiber sieht es im Admin und kann gegensteuern
+- **Umsatz-Auswertung** (`/admin/stats`) – Tagesumsatz, Trinkgeld, Ø Bonwert, 7/14/30-Tage-Verlauf, Top-Drinks, Umsatz je Standort
+- **Name für den Aufruf** – Gast kann im Abhol-Modus optional seinen Namen angeben, erscheint auf dem Board
 
 ## Stack
 

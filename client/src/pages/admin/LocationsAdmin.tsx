@@ -46,6 +46,16 @@ export default function LocationsAdmin(): JSX.Element {
     onSettled: () => void queryClient.invalidateQueries({ queryKey: ['admin-locations'] }),
   });
 
+  const resumeOrders = useMutation({
+    mutationFn: (loc: AdminLocation) =>
+      api<AdminLocation>(`/api/admin/locations/${loc.id}`, {
+        method: 'PATCH',
+        auth: 'admin',
+        body: { acceptingOrders: true },
+      }),
+    onSettled: () => void queryClient.invalidateQueries({ queryKey: ['admin-locations'] }),
+  });
+
   if (isLoading) return <p className="text-ivory/60">Standorte werden geladen …</p>;
 
   return (
@@ -131,14 +141,23 @@ export default function LocationsAdmin(): JSX.Element {
           </li>
         )}
         {locations.map((loc) => (
-          <LocationCard key={loc.id} location={loc} onToggleActive={() => toggleActive.mutate(loc)} />
+          <LocationCard
+            key={loc.id}
+            location={loc}
+            onToggleActive={() => toggleActive.mutate(loc)}
+            onResumeOrders={() => resumeOrders.mutate(loc)}
+          />
         ))}
       </ul>
     </div>
   );
 }
 
-function LocationCard(props: { location: AdminLocation; onToggleActive: () => void }): JSX.Element {
+function LocationCard(props: {
+  location: AdminLocation;
+  onToggleActive: () => void;
+  onResumeOrders: () => void;
+}): JSX.Element {
   const { location } = props;
   const [qrOpen, setQrOpen] = useState(false);
   const [tableCount, setTableCount] = useState(10);
@@ -190,9 +209,21 @@ function LocationCard(props: { location: AdminLocation; onToggleActive: () => vo
             <span className={location.active ? 'font-semibold text-oliva' : 'font-semibold text-red-300'}>
               {location.active ? 'aktiv' : 'inaktiv'}
             </span>
+            {location.active && !location.acceptingOrders && (
+              <span className="font-semibold text-red-300"> · Bestellstopp</span>
+            )}
           </p>
         </div>
         <div className="flex gap-2">
+          {location.active && !location.acceptingOrders && (
+            <button
+              type="button"
+              onClick={props.onResumeOrders}
+              className="rounded-xl border-2 border-red-400/40 px-3 py-2 text-sm font-bold text-red-300 transition hover:border-red-400/70"
+            >
+              Bestellungen öffnen
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setQrOpen((v) => !v)}

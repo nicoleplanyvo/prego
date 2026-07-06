@@ -26,6 +26,7 @@ export interface PublicLocation {
   name: string;
   slug: string;
   mode: OrderMode;
+  acceptingOrders: boolean;
   currency: string;
   barName: string;
   paymentsReady: boolean;
@@ -51,6 +52,7 @@ export interface PublicOrder {
   tableLabel: string | null;
   guestName: string | null;
   subtotalCents: number;
+  tipCents: number;
   currency: string;
   createdAt: string;
   items: OrderItemView[];
@@ -72,8 +74,17 @@ export interface BoardOrder {
   tableLabel: string | null;
   guestName: string | null;
   subtotalCents: number;
+  tipCents: number;
   createdAt: string;
   items: BoardOrderItem[];
+}
+
+export interface StaffLocationState {
+  id: string;
+  name: string;
+  slug: string;
+  mode: OrderMode;
+  acceptingOrders: boolean;
 }
 
 export interface AdminLocation {
@@ -82,7 +93,21 @@ export interface AdminLocation {
   slug: string;
   mode: OrderMode;
   active: boolean;
+  acceptingOrders: boolean;
   createdAt: string;
+}
+
+export interface AdminStats {
+  days: number;
+  today: {
+    orders: number;
+    revenueCents: number;
+    tipCents: number;
+    avgOrderCents: number;
+  };
+  byDay: { date: string; orders: number; revenueCents: number }[];
+  topItems: { name: string; quantity: number; revenueCents: number }[];
+  byLocation: { id: string; name: string; orders: number; revenueCents: number }[];
 }
 
 export interface AdminMenuItem {

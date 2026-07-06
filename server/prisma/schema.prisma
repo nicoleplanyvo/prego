@@ -46,6 +46,7 @@ model Location {
   staffPinHash String
   currency     String         @default("eur")
   active       Boolean        @default(true)
+  acceptingOrders Boolean     @default(true)
   orderCounter Int            @default(0)
   categories   MenuCategory[]
   orders       Order[]
@@ -85,6 +86,7 @@ model Order {
   guestName        String?
   status           OrderStatus @default(PENDING_PAYMENT)
   subtotalCents    Int
+  tipCents         Int         @default(0)
   feeCents         Int
   currency         String      @default("eur")
   paymentIntentId  String?     @unique

@@ -5,6 +5,7 @@ import { getAdminToken, setAdminToken } from '../../api';
 const tabs = [
   { to: '/admin/locations', label: 'Standorte' },
   { to: '/admin/menu', label: 'Speisekarte' },
+  { to: '/admin/stats', label: 'Auswertung' },
   { to: '/admin/stripe', label: 'Stripe & Abo' },
 ];
 

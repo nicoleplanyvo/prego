@@ -206,6 +206,11 @@ export default function StatusPage(): JSX.Element {
             </li>
           ))}
         </ul>
+        {order.tipCents > 0 && (
+          <p className="mt-3 border-t border-ivory/[0.07] pt-3 text-xs font-light text-ivory/45">
+            + Trinkgeld – danke! <span className="font-display italic text-champagne">Salute.</span>
+          </p>
+        )}
       </section>
     </main>
   );

@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
+import type { OrderStatus } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { requireAdmin } from '../middleware/auth';
 import { ApiError, asyncHandler } from '../middleware/error';
@@ -34,13 +35,98 @@ adminRouter.get(
   })
 );
 
+/** Bezahlte Bestellungen zählen als Umsatz – stornierte und unbezahlte nicht. */
+const PAID_STATUSES: OrderStatus[] = ['NEW', 'IN_PROGRESS', 'READY', 'COMPLETED'];
+
+function dayKey(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+/** Umsatz-Auswertung über alle Standorte des Tenants (heute + Verlauf + Top-Artikel). */
+adminRouter.get(
+  '/stats',
+  asyncHandler(async (req, res) => {
+    const days = Math.min(Math.max(Number(req.query.days) || 7, 1), 30);
+    const since = new Date();
+    since.setHours(0, 0, 0, 0);
+    since.setDate(since.getDate() - (days - 1));
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+
+    const orders = await prisma.order.findMany({
+      where: {
+        location: { tenantId: req.admin!.tenantId },
+        status: { in: PAID_STATUSES },
+        createdAt: { gte: since },
+      },
+      select: {
+        createdAt: true,
+        subtotalCents: true,
+        tipCents: true,
+        locationId: true,
+        location: { select: { name: true } },
+        items: { select: { name: true, quantity: true, priceCents: true } },
+      },
+    });
+
+    const today = { orders: 0, revenueCents: 0, tipCents: 0 };
+    const byDayMap = new Map<string, { orders: number; revenueCents: number }>();
+    for (let i = 0; i < days; i += 1) {
+      const d = new Date(since);
+      d.setDate(since.getDate() + i);
+      byDayMap.set(dayKey(d), { orders: 0, revenueCents: 0 });
+    }
+    const topMap = new Map<string, { quantity: number; revenueCents: number }>();
+    const locationMap = new Map<string, { name: string; orders: number; revenueCents: number }>();
+
+    for (const order of orders) {
+      const day = byDayMap.get(dayKey(order.createdAt));
+      if (day) {
+        day.orders += 1;
+        day.revenueCents += order.subtotalCents;
+      }
+      if (order.createdAt >= startOfToday) {
+        today.orders += 1;
+        today.revenueCents += order.subtotalCents;
+        today.tipCents += order.tipCents;
+      }
+      for (const item of order.items) {
+        const entry = topMap.get(item.name) ?? { quantity: 0, revenueCents: 0 };
+        entry.quantity += item.quantity;
+        entry.revenueCents += item.priceCents * item.quantity;
+        topMap.set(item.name, entry);
+      }
+      const loc = locationMap.get(order.locationId) ?? { name: order.location.name, orders: 0, revenueCents: 0 };
+      loc.orders += 1;
+      loc.revenueCents += order.subtotalCents;
+      locationMap.set(order.locationId, loc);
+    }
+
+    res.json({
+      days,
+      today: {
+        ...today,
+        avgOrderCents: today.orders > 0 ? Math.round(today.revenueCents / today.orders) : 0,
+      },
+      byDay: [...byDayMap.entries()].map(([date, value]) => ({ date, ...value })),
+      topItems: [...topMap.entries()]
+        .map(([name, value]) => ({ name, ...value }))
+        .sort((a, b) => b.quantity - a.quantity)
+        .slice(0, 5),
+      byLocation: [...locationMap.entries()]
+        .map(([id, value]) => ({ id, ...value }))
+        .sort((a, b) => b.revenueCents - a.revenueCents),
+    });
+  })
+);
+
 adminRouter.get(
   '/locations',
   asyncHandler(async (req, res) => {
     const locations = await prisma.location.findMany({
       where: { tenantId: req.admin!.tenantId },
       orderBy: { createdAt: 'asc' },
-      select: { id: true, name: true, slug: true, mode: true, active: true, createdAt: true },
+      select: { id: true, name: true, slug: true, mode: true, active: true, acceptingOrders: true, createdAt: true },
     });
     res.json(locations);
   })
@@ -60,7 +146,7 @@ adminRouter.post(
         mode: body.mode,
         staffPinHash: await bcrypt.hash(body.staffPin, 10),
       },
-      select: { id: true, name: true, slug: true, mode: true, active: true, createdAt: true },
+      select: { id: true, name: true, slug: true, mode: true, active: true, acceptingOrders: true, createdAt: true },
     });
     res.status(201).json(location);
   })
@@ -77,9 +163,10 @@ adminRouter.patch(
         name: body.name,
         mode: body.mode,
         active: body.active,
+        acceptingOrders: body.acceptingOrders,
         staffPinHash: body.staffPin ? await bcrypt.hash(body.staffPin, 10) : undefined,
       },
-      select: { id: true, name: true, slug: true, mode: true, active: true, createdAt: true },
+      select: { id: true, name: true, slug: true, mode: true, active: true, acceptingOrders: true, createdAt: true },
     });
     res.json(updated);
   })
