@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { PregoLogo } from '../branding';
 
 const STEPS = [
   {
@@ -57,10 +58,9 @@ export default function Landing(): JSX.Element {
         <p className="text-[11px] font-semibold uppercase tracking-luxe text-champagne">
           Order Management für mobile Bars
         </p>
-        <h1 className="mt-4 font-display text-7xl font-medium tracking-tight sm:text-8xl">
-          prego<span className="text-champagne">.</span>
-        </h1>
-        <p className="mt-6 max-w-md text-lg font-light leading-relaxed text-ivory/60">
+        <h1 className="sr-only">prego.</h1>
+        <PregoLogo width={430} className="-my-10 max-w-full" />
+        <p className="max-w-md text-lg font-light leading-relaxed text-ivory/60">
           Deine Gäste bestellen und bezahlen per QR-Code –<br className="hidden sm:block" />
           dein Team mixt, statt zu kassieren.
         </p>

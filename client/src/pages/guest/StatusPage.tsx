@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api';
-import { BrandedShell, BrandLogo } from '../../branding';
+import { BrandedShell, BrandLogo, PoweredByPrego } from '../../branding';
 import type { PublicOrder } from '../../types';
 
 const STATUS_STEPS: { key: PublicOrder['status']; label: string }[] = [
@@ -232,6 +232,7 @@ export default function StatusPage(): JSX.Element {
           </p>
         )}
       </section>
+      <PoweredByPrego className="mt-10" />
     </main>
     </BrandedShell>
   );

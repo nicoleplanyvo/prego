@@ -64,3 +64,76 @@ export function BrandLogo(props: { branding: Branding | null | undefined; barNam
     />
   );
 }
+
+/** prego-Logo „Wasserring": Wortmarke im unterbrochenen Glasabdruck-Ring. */
+export function PregoLogo(props: { width?: number; className?: string }): JSX.Element {
+  const width = props.width ?? 460;
+  return (
+    <svg
+      width={width}
+      height={(width / 720) * 440}
+      viewBox="0 0 720 440"
+      className={props.className}
+      role="img"
+      aria-label="prego."
+    >
+      <defs>
+        <linearGradient id="prego-gold" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#DFC08A" />
+          <stop offset=".55" stopColor="#C9A96A" />
+          <stop offset="1" stopColor="#9C7B42" />
+        </linearGradient>
+      </defs>
+      <g fill="none" strokeLinecap="round">
+        <circle
+          cx="360"
+          cy="220"
+          r="150"
+          stroke="url(#prego-gold)"
+          strokeWidth="2.8"
+          strokeDasharray="800 143"
+          transform="rotate(-18 360 220)"
+          opacity=".9"
+        />
+        <circle
+          cx="360"
+          cy="220"
+          r="138"
+          stroke="#C9A96A"
+          strokeWidth="1.1"
+          strokeDasharray="250 617"
+          transform="rotate(105 360 220)"
+          opacity=".3"
+        />
+      </g>
+      <g fill="#C9A96A">
+        <circle cx="472" cy="94" r="5" opacity=".9" />
+        <circle cx="494" cy="66" r="3.2" opacity=".6" />
+        <circle cx="478" cy="40" r="2" opacity=".35" />
+      </g>
+      <text
+        x="352"
+        y="248"
+        textAnchor="middle"
+        fontFamily="Fraunces, Georgia, serif"
+        fontSize="92"
+        fill="#F2EDE3"
+        letterSpacing="-1.5"
+      >
+        prego
+      </text>
+      <circle cx="490" cy="242" r="8" fill="url(#prego-gold)" />
+    </svg>
+  );
+}
+
+/** Dezenter „powered by"-Hinweis am Ende der Gast-Seiten – die Marke der Bar bleibt vorn. */
+export function PoweredByPrego(props: { className?: string }): JSX.Element {
+  return (
+    <p
+      className={`text-center text-[10px] font-semibold uppercase tracking-[0.25em] text-ivory/25 ${props.className ?? ''}`}
+    >
+      powered by <span style={{ fontFamily: 'Fraunces, Georgia, serif' }} className="normal-case text-[13px] tracking-normal text-ivory/40">prego<span style={{ color: '#C9A96A' }}>.</span></span>
+    </p>
+  );
+}

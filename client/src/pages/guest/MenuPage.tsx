@@ -3,7 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { api, euro } from '../../api';
 import { useCart, cartTotalCents, cartItemCount, cartTipCents } from '../../store/cart';
-import { BrandedShell, BrandLogo } from '../../branding';
+import { BrandedShell, BrandLogo, PoweredByPrego } from '../../branding';
 import type { PublicLocation, PublicOrder } from '../../types';
 
 interface CreateOrderResponse {
@@ -149,6 +149,7 @@ export default function MenuPage(): JSX.Element {
             </ul>
           </section>
         ))}
+        <PoweredByPrego className="mt-14" />
       </main>
 
       {itemCount > 0 && (
